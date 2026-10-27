@@ -1,12 +1,5 @@
-// Цикл агента. Реалізуємо разом на кроці 1.
-//
-// Ідея:
-// 1. Додаємо питання користувача до історії повідомлень.
-// 2. Надсилаємо в LLM: системний промпт + історію + опис інструментів.
-// 3. Якщо LLM відповіла текстом — це фінальна відповідь.
-// 4. Якщо LLM попросила викликати інструмент (toolCalls) — виконуємо його,
-//    додаємо результат в історію і повертаємося до кроку 2.
-// 5. Обмежуємо кількість кроків, щоб агент не зациклився.
+// Цикл агента: LLM вирішує, який інструмент викликати, ми його виконуємо
+// й повертаємо результат, доки LLM не дасть фінальну текстову відповідь.
 //
 // Формат повідомлень в історії:
 //   { role: 'user', text }
@@ -15,12 +8,32 @@
 
 export async function runAgent({ question, llm, tools, system, history = [], maxSteps = 5, onStep }) {
   const messages = [...history, { role: 'user', text: question }];
+  const steps = [];
 
-  // TODO (крок 1): реалізуйте цикл агента.
+  for (let i = 0; i < maxSteps; i++) {
+    const reply = await llm.complete({ system, messages, tools });
+    messages.push({ role: 'assistant', text: reply.text, toolCalls: reply.toolCalls, raw: reply.raw });
 
-  return {
-    answer: 'Агент ще не реалізований — це завдання кроку 1.',
-    steps: [],
-    messages,
-  };
+    if (!reply.toolCalls?.length) {
+      return { answer: reply.text || '(порожня відповідь)', steps, messages };
+    }
+
+    const results = [];
+    for (const call of reply.toolCalls) {
+      const tool = tools.find((t) => t.name === call.name);
+      let result;
+      try {
+        result = tool ? await tool.run(call.args ?? {}) : { error: `Невідомий інструмент: ${call.name}` };
+      } catch (err) {
+        result = { error: err.message };
+      }
+      const step = { name: call.name, args: call.args ?? {}, result };
+      steps.push(step);
+      onStep?.(step);
+      results.push({ name: call.name, result });
+    }
+    messages.push({ role: 'tool', results });
+  }
+
+  return { answer: 'Не вдалося отримати відповідь за допустиму кількість кроків.', steps, messages };
 }
