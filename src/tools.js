@@ -5,7 +5,9 @@
 // 3. Інструменти повертають лише дозволені поля: жодних зарплат, email і телефонів.
 // 4. Підключення до бази — лише на читання. Навіть помилка в коді не дасть нічого видалити.
 // 5. Аргументи від моделі перевіряються, SQL — лише з параметрами.
+// 6. (крок 5) Кожен виклик інструмента записується в журнал аудиту data/audit.log.
 import { openDb } from './db.js';
+import { withAudit } from './audit.js';
 
 const STATUSES = ['new', 'paid', 'cancelled'];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -108,5 +110,6 @@ export function createTools({ user, dbPath } = {}) {
     },
   };
 
-  return { tools: [getRevenue, getOrders, getTopCustomers], close: () => db.close() };
+  const tools = [getRevenue, getOrders, getTopCustomers].map((tool) => withAudit(tool, user));
+  return { tools, close: () => db.close() };
 }
