@@ -1,0 +1,16 @@
+{
+  "name": "agent-nad-danymy",
+  "version": "1.0.0",
+  "description": "Майстер-клас «ШІ-агент над даними компанії: як не показати зайвого»",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "setup": "node --disable-warning=ExperimentalWarning data/seed.js",
+    "chat": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/chat.js",
+    "attacks": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning attacks/run.js",
+    "test": "node --disable-warning=ExperimentalWarning --test"
+  }
+}
